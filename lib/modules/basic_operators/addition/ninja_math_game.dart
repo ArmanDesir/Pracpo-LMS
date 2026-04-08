@@ -513,6 +513,9 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
     if (_selectedIndices.isEmpty) {
       return 'No numbers selected';
     }
+    if (_selectedIndices.length < 2) {
+      return 'Select at least 2 cards';
+    }
 
     final round = _rounds[_current];
     final selectedNumbers = _selectedIndices.map((i) => round.numbers[i]).toList();
@@ -522,7 +525,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   int _calculateCurrentResult() {
-    if (_selectedIndices.isEmpty) return 0;
+    if (_selectedIndices.length < 2) return -999999;
 
     final round = _rounds[_current];
     final selectedNumbers = _selectedIndices.map((i) => round.numbers[i]).toList();
@@ -533,17 +536,16 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
         return selectedNumbers.fold(0, (a, b) => a + b);
       case 'subtraction':
       case 'subtract':
-        return selectedNumbers.length > 1
-            ? selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b)
-            : selectedNumbers[0];
+        return selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b);
       case 'multiplication':
       case 'multiply':
         return selectedNumbers.fold(1, (a, b) => a * b);
       case 'division':
       case 'divide':
-        return selectedNumbers.length > 1
-            ? (selectedNumbers[0] / selectedNumbers.sublist(1).fold(1, (a, b) => a * b)).round()
-            : selectedNumbers[0];
+        final divisor = selectedNumbers.sublist(1).fold(1, (a, b) => a * b);
+        if (divisor == 0) return -999999;
+        if (selectedNumbers[0] % divisor != 0) return -999999;
+        return selectedNumbers[0] ~/ divisor;
       default:
         return selectedNumbers.fold(0, (a, b) => a + b);
     }
@@ -657,7 +659,7 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
   }
 
   int _calculateResultForIndices(List<int> indices, List<int> numbers) {
-    if (indices.isEmpty) return 0;
+    if (indices.length < 2) return -999999;
     final selectedNumbers = indices.map((i) => numbers[i]).toList();
     
     switch (widget.operator.toLowerCase()) {
@@ -666,20 +668,29 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
         return selectedNumbers.fold(0, (a, b) => a + b);
       case 'subtraction':
       case 'subtract':
-        return selectedNumbers.length > 1
-            ? selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b)
-            : selectedNumbers[0];
+        return selectedNumbers[0] - selectedNumbers.sublist(1).fold(0, (a, b) => a + b);
       case 'multiplication':
       case 'multiply':
         return selectedNumbers.fold(1, (a, b) => a * b);
       case 'division':
       case 'divide':
-        return selectedNumbers.length > 1
-            ? (selectedNumbers[0] / selectedNumbers.sublist(1).fold(1, (a, b) => a * b)).round()
-            : selectedNumbers[0];
+        final divisor = selectedNumbers.sublist(1).fold(1, (a, b) => a * b);
+        if (divisor == 0) return -999999;
+        if (selectedNumbers[0] % divisor != 0) return -999999;
+        return selectedNumbers[0] ~/ divisor;
       default:
         return selectedNumbers.fold(0, (a, b) => a + b);
     }
+  }
+
+  bool _isUserAnswerCorrectForRound(_TargetRound round, List<int> userAnswer) {
+    // Teacher-assigned rounds may not have exact solution indices.
+    // In that case, correctness is based on computed result reaching target.
+    if (round.solutionIndices.isEmpty) {
+      return _calculateResultForIndices(userAnswer, round.numbers) == round.target;
+    }
+    return round.solutionIndices.length == userAnswer.length &&
+        round.solutionIndices.every((i) => userAnswer.contains(i));
   }
 
   Widget _buildReviewScreen() {
@@ -719,10 +730,11 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
             final index = entry.key;
             final round = entry.value;
             final userAnswer = _userAnswers[index] ?? [];
-            final isCorrect = round.solutionIndices.length == userAnswer.length &&
-                round.solutionIndices.every((i) => userAnswer.contains(i));
+            final isCorrect = _isUserAnswerCorrectForRound(round, userAnswer);
             final userResult = _calculateResultForIndices(userAnswer, round.numbers);
-            final correctResult = _calculateResultForIndices(round.solutionIndices, round.numbers);
+            final correctResult = round.solutionIndices.isEmpty
+                ? round.target
+                : _calculateResultForIndices(round.solutionIndices, round.numbers);
 
             return Card(
               margin: const EdgeInsets.only(bottom: 16),
@@ -866,7 +878,9 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Correct Answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = $correctResult',
+                              round.solutionIndices.isEmpty
+                                  ? 'Correct total: ${round.target}'
+                                  : 'Correct Answer: ${round.solutionIndices.map((i) => round.numbers[i]).join(_getOperatorSymbol() + ' ')} = $correctResult',
                               style: const TextStyle(
                                 color: Colors.green,
                                 fontWeight: FontWeight.bold,
@@ -963,9 +977,11 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               _buildTarget(round.target),
               const SizedBox(height: 16),
               Text(
-                _selectedIndices.isNotEmpty
+                _selectedIndices.length >= 2
                     ? '$currentEquation = $currentResult'
-                    : 'No numbers selected',
+                    : (_selectedIndices.isEmpty
+                        ? 'No numbers selected'
+                        : 'Select at least 2 cards'),
                 style: GameTheme.tileText,
               ),
               const SizedBox(height: 32),
@@ -973,8 +989,8 @@ class _NinjaMathGameScreenState extends State<NinjaMathGameScreen> {
               const SizedBox(height: 32),
               GameButton(
                 text: _answerSubmitted ? 'Submitted' : 'Submit',
-                onTap: (!_answerSubmitted && _selectedIndices.isNotEmpty) ? _submit : () {},
-                color: (!_answerSubmitted && _selectedIndices.isNotEmpty)
+                onTap: (!_answerSubmitted && _selectedIndices.length >= 2) ? _submit : () {},
+                color: (!_answerSubmitted && _selectedIndices.length >= 2)
                     ? GameTheme.primary
                     : GameTheme.tile,
               ),

@@ -65,187 +65,205 @@ class _BasicOperatorNinjaBuilderScreenState
   List<_PreviewRound> _generateValidRounds() {
     List<_PreviewRound> list = [];
     for (int i = 0; i < _totalRounds; i++) {
-      int numCount = 4 + _random.nextInt(2);
-      List<int> numbers;
-      int target;
-
-      switch (widget.operator.toLowerCase()) {
-        case 'addition':
-        case 'add':
-          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
-          numbers.shuffle();
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          List<int> solution = numbers.sublist(0, solutionCount);
-          target = solution.fold(0, (a, b) => a + b);
+      _PreviewRound? round;
+      for (int attempt = 0; attempt < 50; attempt++) {
+        final candidate = _generateCandidateRound();
+        if (_hasAtLeastOneSolution(candidate.numbers, candidate.target)) {
+          round = candidate;
           break;
-
-        case 'subtraction':
-        case 'subtract':
-          int startNum = _max;
-          numbers = [startNum];
-          for (int j = 0; j < numCount - 1; j++) {
-            numbers.add(_min + _random.nextInt(((startNum ~/ 2).clamp(1, _max - _min + 1)).toInt()));
-          }
-          numbers.shuffle();
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          List<int> solution = numbers.sublist(0, solutionCount);
-          if (solution.length > 1) {
-            target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
-            if (target < 0) {
-              solution.sort((a, b) => b.compareTo(a));
-              target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
-            }
-          } else {
-            target = solution[0];
-          }
-          break;
-
-        case 'multiplication':
-        case 'multiply':
-          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
-          numbers.shuffle();
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          List<int> solution = numbers.sublist(0, solutionCount);
-          target = solution.fold(1, (a, b) => a * b);
-          break;
-
-        case 'division':
-        case 'divide':
-          int dividend = ((_min * 2 + _random.nextInt((_max * 2) - (_min * 2) + 1)).clamp(_min * 2, _max * 3)).toInt();
-          numbers = [dividend];
-          
-          List<int> divisors = [];
-          for (int j = 0; j < numCount - 1; j++) {
-            if (j < 2) {
-              int possibleDivisor = _min + _random.nextInt(((dividend ~/ 2).clamp(1, _max - _min + 1)).toInt());
-              if (dividend % possibleDivisor == 0 && possibleDivisor > 1) {
-                divisors.add(possibleDivisor);
-                numbers.add(possibleDivisor);
-              } else {
-                numbers.add(_min + _random.nextInt(_max - _min + 1));
-              }
-            } else {
-              numbers.add(_min + _random.nextInt(_max - _min + 1));
-            }
-          }
-          
-          numbers.shuffle();
-
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          List<int> solution = numbers.sublist(0, solutionCount);
-          if (solution.length > 1) {
-            int divisor = solution.sublist(1).fold(1, (a, b) => a * b);
-            if (divisor > 0 && solution[0] % divisor == 0) {
-              target = solution[0] ~/ divisor;
-            } else {
-              solution[0] = (divisor * (_min + _random.nextInt(5))).toInt();
-              target = solution[0] ~/ divisor;
-            }
-          } else {
-            target = solution[0];
-          }
-          break;
-
-        default:
-          numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
-          numbers.shuffle();
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          List<int> solution = numbers.sublist(0, solutionCount);
-          target = solution.fold(0, (a, b) => a + b);
+        }
       }
-
-      list.add(_PreviewRound(target: target, numbers: numbers));
+      list.add(round ?? _fallbackRound());
     }
     return list;
   }
 
-  _PreviewRound _generateRoundWithTarget(int target) {
-    // For custom target editing, generate a round that can achieve the target
-    // using the operator-specific logic
+  _PreviewRound _generateCandidateRound() {
     int numCount = 4 + _random.nextInt(2);
     List<int> numbers;
-    int finalTarget = target;
+    int target;
 
     switch (widget.operator.toLowerCase()) {
       case 'addition':
       case 'add':
-        // For addition, generate numbers that can sum to target
-        int solutionCount = 2 + _random.nextInt(numCount - 1);
-        numbers = [];
-        int remaining = target;
-        for (int i = 0; i < solutionCount - 1; i++) {
-          int num = _min + _random.nextInt((remaining - _min * (solutionCount - i - 1)).clamp(1, _max - _min + 1));
-          numbers.add(num);
-          remaining -= num;
-        }
-        numbers.add(remaining.clamp(_min, _max));
-        while (numbers.length < numCount) {
-          numbers.add(_min + _random.nextInt(_max - _min + 1));
-        }
+        numbers =
+            List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
         numbers.shuffle();
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        List<int> solution = numbers.sublist(0, solutionCount);
+        target = solution.fold(0, (a, b) => a + b);
         break;
 
       case 'subtraction':
       case 'subtract':
-        // For subtraction: startNum - (sum of others) = target
-        int startNum = (target + _min * 2).clamp(_max ~/ 2, _max);
-        numbers = [startNum];
-        int subtractSum = startNum - target;
-        List<int> subtractors = [];
-        int remaining = subtractSum;
-        for (int i = 0; i < numCount - 2 && remaining > 0; i++) {
-          int num = _min + _random.nextInt((remaining - _min).clamp(1, _max - _min + 1));
-          subtractors.add(num);
-          remaining -= num;
-        }
-        if (remaining > 0) subtractors.add(remaining);
-        numbers.addAll(subtractors);
-        while (numbers.length < numCount) {
-          numbers.add(_min + _random.nextInt(_max - _min + 1));
-        }
+        numbers = List.generate(
+            numCount, (_) => _min + _random.nextInt(_max - _min + 1));
         numbers.shuffle();
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        List<int> solution = List<int>.from(numbers.sublist(0, solutionCount))
+          ..sort((a, b) => b.compareTo(a));
+        target = solution[0] - solution.sublist(1).fold(0, (a, b) => a + b);
+        if (target < 0) target = 0;
         break;
 
       case 'multiplication':
       case 'multiply':
-        // For multiplication, generate factors
-        int solutionCount = 2 + _random.nextInt(numCount - 1);
-        numbers = [];
-        int remaining = target;
-        for (int i = 0; i < solutionCount - 1 && remaining > 1; i++) {
-          int factor = _min + _random.nextInt(((remaining / _min).round().clamp(1, _max - _min + 1)).toInt());
-          if (factor > 1 && remaining % factor == 0) {
-            numbers.add(factor);
-            remaining ~/= factor;
-          } else {
-            numbers.add(_min + _random.nextInt(_max - _min + 1));
-          }
-        }
-        if (remaining > 1) numbers.add(remaining);
-        while (numbers.length < numCount) {
-          numbers.add(_min + _random.nextInt(_max - _min + 1));
-        }
+        numbers =
+            List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
         numbers.shuffle();
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        List<int> solution = numbers.sublist(0, solutionCount);
+        target = solution.fold(1, (a, b) => a * b);
         break;
 
       case 'division':
       case 'divide':
-        // For division: dividend / (product of divisors) = target
-        int divisor = _min + _random.nextInt(_max - _min + 1);
-        int dividend = target * divisor;
-        numbers = [dividend, divisor];
+        final divisorCount = 1 + _random.nextInt(2);
+        final divisors = List.generate(
+          divisorCount,
+          (_) => (_min + _random.nextInt(_max - _min + 1)).clamp(1, _max),
+        );
+        final quotient = (_min + _random.nextInt((_max ~/ 2).clamp(2, _max))).clamp(1, _max);
+        final dividend = divisors.fold<int>(quotient, (a, b) => a * b);
+
+        numbers = [dividend, ...divisors];
         while (numbers.length < numCount) {
           numbers.add(_min + _random.nextInt(_max - _min + 1));
         }
         numbers.shuffle();
+        target = quotient;
         break;
 
       default:
-        numbers = List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
+        numbers =
+            List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
         numbers.shuffle();
+        int solutionCount = 2 + _random.nextInt(numCount - 1);
+        List<int> solution = numbers.sublist(0, solutionCount);
+        target = solution.fold(0, (a, b) => a + b);
     }
 
-    return _PreviewRound(target: finalTarget, numbers: numbers);
+    return _PreviewRound(target: target, numbers: numbers);
+  }
+
+  _PreviewRound _fallbackRound() {
+    final numbers = [
+      _min,
+      (_min + 1).clamp(_min, _max),
+      (_min + 2).clamp(_min, _max),
+      (_min + 3).clamp(_min, _max),
+      (_min + 4).clamp(_min, _max),
+    ];
+    switch (widget.operator.toLowerCase()) {
+      case 'subtraction':
+      case 'subtract':
+        final sorted = List<int>.from(numbers)..sort((a, b) => b.compareTo(a));
+        return _PreviewRound(
+          numbers: numbers,
+          target: sorted[0] - sorted.sublist(1).fold(0, (a, b) => a + b),
+        );
+      case 'multiplication':
+      case 'multiply':
+        return _PreviewRound(numbers: numbers, target: numbers[0] * numbers[1]);
+      case 'division':
+      case 'divide':
+        return _PreviewRound(numbers: [12, 3, 2, numbers[3], numbers[4]], target: 2);
+      case 'addition':
+      case 'add':
+      default:
+        return _PreviewRound(numbers: numbers, target: numbers[0] + numbers[1]);
+    }
+  }
+
+  _PreviewRound _generateRoundWithTarget(int target) {
+    for (int attempt = 0; attempt < 500; attempt++) {
+      final numCount = 4 + _random.nextInt(2);
+      final numbers = _generateRandomNumbers(numCount);
+      if (_hasAtLeastOneSolution(numbers, target)) {
+        return _PreviewRound(target: target, numbers: numbers);
+      }
+    }
+    // Keep requested target, but caller must verify solvability.
+    return _PreviewRound(target: target, numbers: _generateRandomNumbers(5));
+  }
+
+  List<int> _generateRandomNumbers(int count) {
+    return List.generate(count, (_) => _min + _random.nextInt(_max - _min + 1));
+  }
+
+  bool _hasAtLeastOneSolution(List<int> numbers, int target) {
+    final count = numbers.length;
+    if (count == 0) return false;
+
+    final op = widget.operator.toLowerCase();
+    for (int mask = 1; mask < (1 << count); mask++) {
+      final selected = <int>[];
+      for (int i = 0; i < count; i++) {
+        if ((mask & (1 << i)) != 0) {
+          selected.add(numbers[i]);
+        }
+      }
+      if (selected.length < 2) continue;
+      if (_subsetMatchesTarget(selected, target, op)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _subsetMatchesTarget(List<int> selected, int target, String op) {
+    switch (op) {
+      case 'addition':
+      case 'add':
+        return selected.fold<int>(0, (a, b) => a + b) == target;
+      case 'multiplication':
+      case 'multiply':
+        return selected.fold<int>(1, (a, b) => a * b) == target;
+      case 'subtraction':
+      case 'subtract':
+        return _hasPermutationMatch(selected, target, (perm) {
+          if (perm.isEmpty) return false;
+          final result = perm[0] - perm.sublist(1).fold<int>(0, (a, b) => a + b);
+          return result == target;
+        });
+      case 'division':
+      case 'divide':
+        return _hasPermutationMatch(selected, target, (perm) {
+          if (perm.isEmpty) return false;
+          final divisor = perm.sublist(1).fold<int>(1, (a, b) => a * b);
+          if (divisor == 0) return false;
+          if (perm[0] % divisor != 0) return false;
+          return (perm[0] ~/ divisor) == target;
+        });
+      default:
+        return selected.fold<int>(0, (a, b) => a + b) == target;
+    }
+  }
+
+  bool _hasPermutationMatch(List<int> values, int target, bool Function(List<int>) tester) {
+    final used = List<bool>.filled(values.length, false);
+    final current = <int>[];
+    bool found = false;
+
+    void backtrack() {
+      if (found) return;
+      if (current.length == values.length) {
+        if (tester(current)) found = true;
+        return;
+      }
+      for (int i = 0; i < values.length; i++) {
+        if (used[i]) continue;
+        used[i] = true;
+        current.add(values[i]);
+        backtrack();
+        current.removeLast();
+        used[i] = false;
+        if (found) return;
+      }
+    }
+
+    backtrack();
+    return found;
   }
 
   String _getValidRangeText() {
@@ -326,8 +344,21 @@ class _BasicOperatorNinjaBuilderScreenState
       return;
     }
 
+    final generated = _generateRoundWithTarget(newTarget);
+    final isSolvableForTarget =
+        generated.target == newTarget &&
+            _hasAtLeastOneSolution(generated.numbers, newTarget);
+
+    if (!isSolvableForTarget) {
+      _showSnack(
+        '⚠️ Could not build a solvable round for target $newTarget with current range ($_min-$_max).',
+      );
+      setState(() => _validationStates[index] = ValidationState.invalid);
+      return;
+    }
+
     setState(() {
-      _rounds[index] = _generateRoundWithTarget(newTarget);
+      _rounds[index] = generated;
       _controllers[index].text = newTarget.toString();
       _validationStates[index] = ValidationState.valid;
     });
@@ -351,6 +382,30 @@ class _BasicOperatorNinjaBuilderScreenState
         _validationStates[i] = ValidationState.unchecked;
       }
     });
+  }
+
+  void _validateAllRounds() {
+    int validCount = 0;
+    setState(() {
+      for (int i = 0; i < _rounds.length; i++) {
+        final target = int.tryParse(_controllers[i].text.trim());
+        if (target == null || !_isTargetValid(target)) {
+          _validationStates[i] = ValidationState.invalid;
+          continue;
+        }
+        final isValid = _hasAtLeastOneSolution(_rounds[i].numbers, target);
+        _validationStates[i] =
+            isValid ? ValidationState.valid : ValidationState.invalid;
+        if (isValid) validCount++;
+      }
+    });
+
+    final invalidCount = _rounds.length - validCount;
+    if (invalidCount == 0) {
+      _showSnack('✅ All rounds are solvable.');
+    } else {
+      _showSnack('⚠️ $invalidCount round(s) are not solvable. Please edit and re-validate.');
+    }
   }
 
   bool get _allValid =>
@@ -385,6 +440,12 @@ class _BasicOperatorNinjaBuilderScreenState
               ),
             ),
             const SizedBox(height: 24),
+            GameButton(
+              text: 'Validate All Rounds',
+              color: Colors.blueAccent,
+              onTap: _validateAllRounds,
+            ),
+            const SizedBox(height: 12),
             GameButton(
               text: 'Looks Good!',
               color: _allValid ? GameTheme.primary : Colors.grey,

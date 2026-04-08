@@ -127,22 +127,40 @@ class OperatorGameService {
         q = q.isFilter('classroom_id', null);
       }
 
-      final res = await q.order('created_at', ascending: false).limit(1).maybeSingle();
-      if (res == null || res is! Map<String, dynamic>) return null;
+      const pageSize = 100;
+      var offset = 0;
+      while (true) {
+        final res = await q
+            .order('created_at', ascending: false)
+            .range(offset, offset + pageSize - 1);
+        if (res is! List || res.isEmpty) {
+          return null;
+        }
 
-      final variants = res['operator_game_variants_game_id_fkey'] as List?;
-      if (variants != null) {
-        for (final v in variants) {
-          if (v is Map && v['config'] is String) {
-            try {
-              v['config'] = jsonDecode(v['config']);
-            } catch (_) {
-              v['config'] = {};
+        for (final row in res.whereType<Map<String, dynamic>>()) {
+          final variants = row['operator_game_variants_game_id_fkey'] as List?;
+          if (variants != null) {
+            for (final v in variants) {
+              if (v is Map && v['config'] is String) {
+                try {
+                  v['config'] = jsonDecode(v['config']);
+                } catch (_) {
+                  v['config'] = {};
+                }
+              }
             }
           }
+
+          final game = OperatorGame.fromJson(row);
+          final hasRequestedDifficulty = game.variants.any(
+            (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
+          );
+          if (hasRequestedDifficulty) {
+            return game;
+          }
         }
+        offset += pageSize;
       }
-      return OperatorGame.fromJson(res);
     }
 
     OperatorGame? game;
@@ -158,7 +176,9 @@ class OperatorGameService {
 
     final variant = game.variants.firstWhere(
       (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
-      orElse: () => game!.variants.first,
+      orElse: () => throw Exception(
+        'No variant found for difficulty "$difficulty" in game "${game!.id}"',
+      ),
     );
 
     return (game: game, variant: variant, isClassroomScoped: isClassroomScoped);
