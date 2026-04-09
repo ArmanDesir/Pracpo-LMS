@@ -111,7 +111,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ),
                         const SizedBox(height: 8),
                         const Text(
-                          'Learn Math Through Fun',
+                          'Learning Math Through Fun',
                           style: TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                       ],
