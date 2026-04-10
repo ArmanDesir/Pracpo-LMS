@@ -158,8 +158,10 @@ class OperatorGameService {
 
     final variant = game.variants.firstWhere(
       (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
-      orElse: () => game!.variants.first,
+      orElse: () => null,
     );
+
+    if (variant == null) return null;
 
     return (game: game, variant: variant, isClassroomScoped: isClassroomScoped);
   }

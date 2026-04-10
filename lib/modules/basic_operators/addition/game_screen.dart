@@ -10,6 +10,12 @@ class GameScreen extends StatelessWidget {
   final String? classroomId; // Optional classroom ID
   const GameScreen({Key? key, required this.operatorKey, this.classroomId}) : super(key: key);
 
+  static const Map<String, Map<String, dynamic>> _defaultConfigs = {
+    'Easy': {'timeSec': 180, 'min': 1, 'max': 10, 'rounds': 10},
+    'Medium': {'timeSec': 240, 'min': 1, 'max': 20, 'rounds': 12},
+    'Hard': {'timeSec': 300, 'min': 1, 'max': 50, 'rounds': 15},
+  };
+
   Future<void> _saveGameProgress({
     required ActivityProgressService activityProgressService,
     String? gameId, // UUID from operator_games table (nullable for Crossword Math)
@@ -64,28 +70,35 @@ class GameScreen extends StatelessWidget {
         classroomId: classroomId,
       );
 
-      if (preferred == null) {
-        throw Exception('Game not found for operator "$operatorKey"');
-      }
-
-      final gameData = preferred.game;
-      final variant = preferred.variant;
-      final config = variant.config;
-
+      Map<String, dynamic> config;
       List<Map<String, dynamic>>? presetRounds;
       bool isAssigned = false;
+      String? gameDataId;
 
-      // Load teacher-created rounds for Ninja Math (works for all operators)
-      if (gameKey == 'ninjamath') {
-        try {
-          final rounds = await svc.getNinjaMathRounds(gameData.id);
-          if (rounds.isNotEmpty) {
-            presetRounds = rounds;
-            isAssigned = preferred.isClassroomScoped;
+      if (preferred != null) {
+        final gameData = preferred.game;
+        final variant = preferred.variant;
+        config = variant.config;
+        gameDataId = gameData.id;
+
+        // Load teacher-created rounds for Ninja Math (works for all operators)
+        if (gameKey == 'ninjamath') {
+          try {
+            final rounds = await svc.getNinjaMathRounds(gameData.id);
+            if (rounds.isNotEmpty) {
+              presetRounds = rounds;
+              isAssigned = preferred.isClassroomScoped;
+            }
+          } catch (_) {
+            // If rounds can't be fetched, fall back to randomized rounds.
           }
-        } catch (_) {
-          // If rounds can't be fetched, fall back to randomized rounds.
         }
+      } else {
+        // No teacher-created game found, use default config
+        config = Map<String, dynamic>.from(_defaultConfigs[difficulty] ?? {});
+        presetRounds = null;
+        isAssigned = false;
+        gameDataId = null;
       }
 
       Widget screen;
@@ -176,7 +189,7 @@ class GameScreen extends StatelessWidget {
         // For Crossword Math, always use null gameId to ensure consistent grouping
         // This prevents mixing with other games that might have the same game_key
         // For Ninja Math, use the gameId from database
-        final String? finalGameId = gameKey == 'crossmath' ? null : gameData.id;
+        final String? finalGameId = gameKey == 'crossmath' ? null : gameDataId;
         
         // Get classroom_id if not provided - try to get from user's current classroom
         String? finalClassroomId = classroomId;
