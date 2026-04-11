@@ -59,31 +59,51 @@ class OperatorGameService {
     String? classroomId,
   }) async {
     try {
-      final insert = await _sp
+      // CHECK EXISTING GAME FIRST
+      final existing = await _sp
           .from('operator_games')
-          .insert({
-        'operator': operatorKey,
-        'game_key': gameKey,
-        'title': title,
-        'description': description,
-        if (createdBy != null) 'created_by': createdBy,
-        if (classroomId != null && classroomId.isNotEmpty)
-          'classroom_id': classroomId,
-      })
           .select('id')
-          .single();
-      final gameId = insert['id'] as String;
+          .eq('operator', operatorKey)
+          .eq('game_key', gameKey)
+          .eq('title', title)
+          .maybeSingle();
+
+      String gameId;
+
+      if (existing != null) {
+        gameId = existing['id'];
+      } else {
+        final insert = await _sp
+            .from('operator_games')
+            .insert({
+          'operator': operatorKey,
+          'game_key': gameKey,
+          'title': title,
+          'description': description,
+          if (createdBy != null) 'created_by': createdBy,
+          if (classroomId != null && classroomId.isNotEmpty)
+            'classroom_id': classroomId,
+        })
+            .select('id')
+            .single();
+
+        gameId = insert['id'] as String;
+      }
+
+      // UPSERT VARIANTS
       if (variantsByDifficulty.isNotEmpty) {
         final rows = variantsByDifficulty.entries.map((e) {
-          final diff = e.key.toLowerCase();
           return {
             'game_id': gameId,
-            'difficulty': diff,
+            'difficulty': e.key.toLowerCase(),
             'config': e.value,
           };
         }).toList();
 
-        await _sp.from('operator_game_variants').insert(rows);
+        await _sp.from('operator_game_variants').upsert(
+          rows,
+          onConflict: 'game_id,difficulty',
+        );
       }
 
       return gameId;

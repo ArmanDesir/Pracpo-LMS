@@ -25,7 +25,7 @@ class _BasicOperatorCreateGamePageState
   final _descCtrl = TextEditingController();
 
   bool _isSaving = false;
-  String _selectedGame = 'ninjamath'; // Only Ninja Math can be created
+  String _selectedGame = 'ninjamath';
   String _selectedDifficulty = 'Easy';
 
   final Map<String, Map<String, dynamic>> _configs = {
@@ -48,28 +48,31 @@ class _BasicOperatorCreateGamePageState
         return;
       }
 
-      final config = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
+      // Config for the selected difficulty (used for round generation)
+      final selectedConfig = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
 
-      // Only Ninja Math can be created - always generate rounds
-      List<Map<String, dynamic>>? generatedRounds;
-        final result = await Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => BasicOperatorNinjaBuilderScreen(
-              operator: widget.operatorKey,
-              config: config,
-              difficulty: _selectedDifficulty,
-              title: _titleCtrl.text.trim(),
-              description: _descCtrl.text.trim(),
-            ),
+      // Navigate to builder screen for round generation
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BasicOperatorNinjaBuilderScreen(
+            operator: widget.operatorKey,
+            config: selectedConfig,
+            difficulty: _selectedDifficulty,
+            title: _titleCtrl.text.trim(),
+            description: _descCtrl.text.trim(),
           ),
-        );
+        ),
+      );
 
-        if (result == null || result.isEmpty) {
-          setState(() => _isSaving = false);
-          return;
-        }
-        generatedRounds = List<Map<String, dynamic>>.from(result);
+      if (result == null || result.isEmpty) {
+        setState(() => _isSaving = false);
+        return;
+      }
+
+      final generatedRounds = List<Map<String, dynamic>>.from(result);
+
+      // Save game with ALL difficulty variants so none overwrite each other
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
@@ -78,12 +81,15 @@ class _BasicOperatorCreateGamePageState
             ? null
             : _descCtrl.text.trim(),
         variantsByDifficulty: {
-          _selectedDifficulty.toLowerCase(): config,
+          'easy': Map<String, dynamic>.from(_configs['Easy']!),
+          'medium': Map<String, dynamic>.from(_configs['Medium']!),
+          'hard': Map<String, dynamic>.from(_configs['Hard']!),
         },
         createdBy: user.id,
         classroomId: widget.classroomId,
       );
-      if (generatedRounds != null && generatedRounds.isNotEmpty) {
+
+      if (generatedRounds.isNotEmpty) {
         final rows = generatedRounds
             .asMap()
             .entries
@@ -103,7 +109,7 @@ class _BasicOperatorCreateGamePageState
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('✅ Game created successfully (ID: $gameId)')),
       );
-        Navigator.pop(context);
+      Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -128,20 +134,19 @@ class _BasicOperatorCreateGamePageState
           key: _formKey,
           child: ListView(
             children: [
-              // Game type is fixed to Ninja Math only
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: Row(
+                child: const Row(
                   children: [
-                    const Text(
+                    Text(
                       'Game Type: ',
                       style: TextStyle(fontSize: 16, color: Colors.grey),
                     ),
-                    const Text(
+                    Text(
                       'Ninja Math',
                       style: TextStyle(
                         fontSize: 16,
