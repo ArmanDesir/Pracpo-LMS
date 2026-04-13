@@ -48,13 +48,10 @@ class _BasicOperatorCreateGamePageState
         return;
       }
 
-<<<<<<< HEAD
-      // Config for the selected difficulty (used for round generation)
-      final selectedConfig = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
-=======
+
       final selectedConfig =
       Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
->>>>>>> Fixes-test
+
 
       // Navigate to builder screen for round generation
       final result = await Navigator.push(
@@ -77,11 +74,9 @@ class _BasicOperatorCreateGamePageState
 
       final generatedRounds = List<Map<String, dynamic>>.from(result);
 
-<<<<<<< HEAD
-      // Save game with ALL difficulty variants so none overwrite each other
-=======
+
       // Create or reuse game row (one per title), upsert only selected difficulty variant
->>>>>>> Fixes-test
+
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
@@ -89,32 +84,15 @@ class _BasicOperatorCreateGamePageState
         description:
         _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         variantsByDifficulty: {
-<<<<<<< HEAD
-          'easy': Map<String, dynamic>.from(_configs['Easy']!),
-          'medium': Map<String, dynamic>.from(_configs['Medium']!),
-          'hard': Map<String, dynamic>.from(_configs['Hard']!),
-=======
+
           _selectedDifficulty.toLowerCase(): selectedConfig,
->>>>>>> Fixes-test
+
         },
         createdBy: user.id,
         classroomId: widget.classroomId,
       );
-<<<<<<< HEAD
 
-      if (generatedRounds.isNotEmpty) {
-        final rows = generatedRounds
-            .asMap()
-            .entries
-            .map((e) => {
-          'game_id': gameId,
-          'round_no': e.key + 1,
-          'numbers': e.value['numbers'],
-          'correct_answer': e.value['target'],
-        })
-            .toList();
-=======
->>>>>>> Fixes-test
+
 
       // Replace only this difficulty's rounds — Medium/Hard rounds stay untouched
       await _svc.replaceRoundsForDifficulty(

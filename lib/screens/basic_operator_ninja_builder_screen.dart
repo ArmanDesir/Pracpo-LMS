@@ -78,139 +78,17 @@ class _BasicOperatorNinjaBuilderScreenState
     return list;
   }
 
-<<<<<<< HEAD
-  _PreviewRound _generateRoundWithTarget(int target) {
-    int numCount = 4 + _random.nextInt(2);
-    List<int> numbers = [];
-    int finalTarget = target;
-=======
+
   _PreviewRound _generateCandidateRound() {
     int numCount = 4 + _random.nextInt(2);
     List<int> numbers;
     int target;
->>>>>>> Fixes-test
+
 
     switch (widget.operator.toLowerCase()) {
       case 'addition':
       case 'add':
-<<<<<<< HEAD
-        {
-          int solutionCount = 2 + _random.nextInt(numCount - 1);
-          int remaining = target;
 
-          // generate exact solution numbers
-          for (int i = 0; i < solutionCount - 1; i++) {
-            int remainingSlots = solutionCount - i - 1;
-
-            int maxAllowed = remaining - (_min * remainingSlots);
-
-            int upperBound = maxAllowed > _max ? _max : maxAllowed;
-
-            int num = _min + _random.nextInt(
-              (upperBound - _min + 1).clamp(1, 999),
-            );
-
-            numbers.add(num);
-            remaining -= num;
-          }
-
-          // final number guarantees exact target
-          numbers.add(remaining);
-
-          // add distractors
-          while (numbers.length < numCount) {
-            numbers.add(
-              _min + _random.nextInt(_max - _min + 1),
-            );
-          }
-
-          numbers.shuffle();
-          break;
-        }
-
-      case 'subtraction':
-      case 'subtract':
-        {
-          int firstNum = target + (_min + _random.nextInt(_max));
-          int subtractor = firstNum - target;
-
-          numbers = [firstNum, subtractor];
-
-          while (numbers.length < numCount) {
-            numbers.add(
-              _min + _random.nextInt(_max - _min + 1),
-            );
-          }
-
-          numbers.shuffle();
-          break;
-        }
-
-      case 'multiplication':
-      case 'multiply':
-        {
-          numbers = [];
-          int factor1 = 1;
-          int factor2 = target;
-
-          for (int i = 2; i <= target; i++) {
-            if (target % i == 0) {
-              factor1 = i;
-              factor2 = target ~/ i;
-              break;
-            }
-          }
-
-          numbers.add(factor1);
-          numbers.add(factor2);
-
-          while (numbers.length < numCount) {
-            numbers.add(
-              _min + _random.nextInt(_max - _min + 1),
-            );
-          }
-
-          numbers.shuffle();
-          break;
-        }
-
-      case 'division':
-      case 'divide':
-        {
-          int divisor = _min + _random.nextInt(_max);
-          int dividend = target * divisor;
-
-          numbers = [dividend, divisor];
-
-          while (numbers.length < numCount) {
-            numbers.add(
-              _min + _random.nextInt(_max - _min + 1),
-            );
-          }
-
-          numbers.shuffle();
-          break;
-        }
-
-      default:
-        {
-          numbers = [target];
-
-          while (numbers.length < numCount) {
-            numbers.add(
-              _min + _random.nextInt(_max - _min + 1),
-            );
-          }
-
-          numbers.shuffle();
-        }
-    }
-
-    return _PreviewRound(
-      target: finalTarget,
-      numbers: numbers,
-    );
-=======
         numbers =
             List.generate(numCount, (_) => _min + _random.nextInt(_max - _min + 1));
         numbers.shuffle();
@@ -389,7 +267,7 @@ class _BasicOperatorNinjaBuilderScreenState
 
     backtrack();
     return found;
->>>>>>> Fixes-test
+
   }
 
   String _getValidRangeText() {
