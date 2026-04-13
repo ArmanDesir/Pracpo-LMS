@@ -48,8 +48,13 @@ class _BasicOperatorCreateGamePageState
         return;
       }
 
+<<<<<<< HEAD
       // Config for the selected difficulty (used for round generation)
       final selectedConfig = Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
+=======
+      final selectedConfig =
+      Map<String, dynamic>.from(_configs[_selectedDifficulty]!);
+>>>>>>> Fixes-test
 
       // Navigate to builder screen for round generation
       final result = await Navigator.push(
@@ -72,22 +77,30 @@ class _BasicOperatorCreateGamePageState
 
       final generatedRounds = List<Map<String, dynamic>>.from(result);
 
+<<<<<<< HEAD
       // Save game with ALL difficulty variants so none overwrite each other
+=======
+      // Create or reuse game row (one per title), upsert only selected difficulty variant
+>>>>>>> Fixes-test
       final gameId = await _svc.createGame(
         operatorKey: widget.operatorKey,
         gameKey: _selectedGame,
         title: _titleCtrl.text.trim(),
-        description: _descCtrl.text.trim().isEmpty
-            ? null
-            : _descCtrl.text.trim(),
+        description:
+        _descCtrl.text.trim().isEmpty ? null : _descCtrl.text.trim(),
         variantsByDifficulty: {
+<<<<<<< HEAD
           'easy': Map<String, dynamic>.from(_configs['Easy']!),
           'medium': Map<String, dynamic>.from(_configs['Medium']!),
           'hard': Map<String, dynamic>.from(_configs['Hard']!),
+=======
+          _selectedDifficulty.toLowerCase(): selectedConfig,
+>>>>>>> Fixes-test
         },
         createdBy: user.id,
         classroomId: widget.classroomId,
       );
+<<<<<<< HEAD
 
       if (generatedRounds.isNotEmpty) {
         final rows = generatedRounds
@@ -100,9 +113,15 @@ class _BasicOperatorCreateGamePageState
           'correct_answer': e.value['target'],
         })
             .toList();
+=======
+>>>>>>> Fixes-test
 
-        await supabase.from('ninja_math_rounds').insert(rows);
-      }
+      // Replace only this difficulty's rounds — Medium/Hard rounds stay untouched
+      await _svc.replaceRoundsForDifficulty(
+        gameId: gameId,
+        difficulty: _selectedDifficulty,
+        rounds: generatedRounds,
+      );
 
       if (!mounted) return;
 
@@ -135,7 +154,8 @@ class _BasicOperatorCreateGamePageState
           child: ListView(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                padding:
+                const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
                   borderRadius: BorderRadius.circular(4),
