@@ -119,30 +119,29 @@ class OperatorGameService {
   /// Deletes only the rounds for a specific difficulty under a game,
   /// then inserts the new ones. This allows re-creating Easy without
   /// touching Medium or Hard rounds.
+  /// Deletes only the rounds for a specific difficulty under a game,
+  /// then inserts the new ones. This allows re-creating Easy without
+  /// touching Medium or Hard rounds.
   Future<void> replaceRoundsForDifficulty({
     required String gameId,
     required String difficulty,
     required List<Map<String, dynamic>> rounds,
   }) async {
     final diff = difficulty.toLowerCase();
-
-    // Delete only this difficulty's old rounds
+    // Delete only this difficulty's old rounds (case-insensitive match)
     await _sp
         .from('ninja_math_rounds')
         .delete()
         .eq('game_id', gameId)
-        .eq('difficulty', diff);
-
+        .filter('difficulty', 'ilike', diff); // ilike handles case mismatches
     if (rounds.isEmpty) return;
-
     final rows = rounds.asMap().entries.map((e) => {
       'game_id': gameId,
-      'difficulty': diff,
+      'difficulty': diff, // always stored lowercase
       'round_no': e.key + 1,
       'numbers': e.value['numbers'],
       'correct_answer': e.value['target'],
     }).toList();
-
     await _sp.from('ninja_math_rounds').insert(rows);
   }
 
@@ -159,38 +158,37 @@ class OperatorGameService {
     required String difficulty,
     String? classroomId,
   }) async {
-    Future<OperatorGame?> fetchOne({
+    Future<OperatorGame?> fetchWithDifficulty({
       required bool classroomScoped,
     }) async {
       var q = _sp.from('operator_games').select('''
+          id,
+          operator,
+          game_key,
+          title,
+          description,
+          is_active,
+          operator_game_variants_game_id_fkey (
             id,
-            operator,
-            game_key,
-            title,
-            description,
-            is_active,
-            operator_game_variants_game_id_fkey (
-              id,
-              difficulty,
-              config
-            )
-          ''')
+            difficulty,
+            config
+          )
+        ''')
           .eq('operator', operatorKey)
           .eq('game_key', gameKey)
           .eq('is_active', true);
-
       if (classroomScoped && classroomId != null) {
         q = q.eq('classroom_id', classroomId);
       } else {
         q = q.isFilter('classroom_id', null);
       }
-
-      final res =
-      await q.order('created_at', ascending: false).limit(1).maybeSingle();
-      if (res == null || res is! Map<String, dynamic>) return null;
-
-      final variants = res['operator_game_variants_game_id_fkey'] as List?;
-      if (variants != null) {
+      // Fetch ALL games, not just the most recent one
+      final res = await q.order('created_at', ascending: false);
+      if (res is! List || res.isEmpty) return null;
+      for (final raw in res.whereType<Map<String, dynamic>>()) {
+        final variants = raw['operator_game_variants_game_id_fkey'] as List?;
+        if (variants == null || variants.isEmpty) continue;
+        // Decode config if stored as a JSON string
         for (final v in variants) {
           if (v is Map && v['config'] is String) {
             try {
@@ -200,47 +198,42 @@ class OperatorGameService {
             }
           }
         }
+        // Only return this game if it has the requested difficulty variant
+        final hasDifficulty = variants.any((v) =>
+        v is Map &&
+            (v['difficulty'] as String?)?.toLowerCase() ==
+                difficulty.toLowerCase());
+        if (hasDifficulty) {
+          return OperatorGame.fromJson(raw);
+        }
       }
-      return OperatorGame.fromJson(res);
+      return null;
     }
-
     OperatorGame? game;
     bool isClassroomScoped = false;
-
     if (classroomId != null && classroomId.trim().isNotEmpty) {
-      game = await fetchOne(classroomScoped: true);
+      game = await fetchWithDifficulty(classroomScoped: true);
       isClassroomScoped = game != null;
     }
-
-    game ??= await fetchOne(classroomScoped: false);
+    game ??= await fetchWithDifficulty(classroomScoped: false);
     if (game == null) return null;
-
     final variant = game.variants.firstWhere(
           (v) => v.difficulty.toLowerCase() == difficulty.toLowerCase(),
       orElse: () => game!.variants.first,
     );
-
     return (game: game, variant: variant, isClassroomScoped: isClassroomScoped);
   }
-
   Future<List<Map<String, dynamic>>> getNinjaMathRounds(
       String gameId, {
-        String? difficulty,
+        required String difficulty, // make this required
       }) async {
-    var q = _sp
+    final res = await _sp
         .from('ninja_math_rounds')
         .select('round_no, numbers, correct_answer')
-        .eq('game_id', gameId);
-
-    // Filter by difficulty if provided so each difficulty gets its own rounds
-    if (difficulty != null) {
-      q = q.eq('difficulty', difficulty.toLowerCase());
-    }
-
-    final res = await q.order('round_no', ascending: true);
-
+        .eq('game_id', gameId)
+        .filter('difficulty', 'ilike', difficulty.toLowerCase()) // case-safe
+        .order('round_no', ascending: true);
     if (res is! List) return [];
-
     return res.whereType<Map<String, dynamic>>().map((r) {
       final numsRaw = r['numbers'];
       final numbers = (numsRaw is List)
