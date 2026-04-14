@@ -48,7 +48,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Future<void> _signUp() async {
     if (_formKey.currentState!.validate()) {
       if (widget.userType == UserType.teacher) {
-        if (_teacherCodeController.text.trim() != 'TEACHER2026') {
+        if (_teacherCodeController.text.trim() != 'TEACHER2025') {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
